@@ -2,8 +2,35 @@ import os
 import cv2
 import face_recognition
 import numpy as np
+import serial
+import time
 import CaptureFaceData
 from FaceRecognition import treatedData
+
+ARDUINO_PORT = 'COM3'  # ARDUINO PORT
+BAUD_RATE = 9600 # THAT THING IDK
+arduino = None
+
+def initialize_arduino():
+    global arduino
+    try:
+        arduino = serial.Serial(ARDUINO_PORT, BAUD_RATE, timeout=1)
+        time.sleep(2)  
+        print(f"Arduino connected on {ARDUINO_PORT}")
+        return True
+    except Exception as e:
+        print(f"Failed to connect to Arduino: {e}")
+        print("Face recognition will continue without Arduino control")
+        return False
+
+def send_servo_signal():
+    global arduino
+    if arduino and arduino.is_open:
+        try:
+            arduino.write(b'ROTATE\n') 
+            print("Signal sent to Arduino - Servo rotating 90 degrees")
+        except Exception as e:
+            print(f"Error sending signal to Arduino: {e}")
 
 def load_all_faces(base_directory):
     
@@ -50,7 +77,7 @@ def add_new_person():
         if add_more == 'y':
             CaptureFaceData.captureData(directory, name)
     
-    print(f"Face data for {name} is ready!")
+    print(f"Face data for {name} is ready.")
 
 def detect_faces():
     base_directory = 'C:\\Users\\Administrateur\\Desktop\\PEOPLE\\'
@@ -59,11 +86,13 @@ def detect_faces():
     known_faces, known_names = load_all_faces(base_directory)
     
     if not known_faces:
-        print("No face data found. Please add some faces first.")
+        print("No face data found. Add some faces first.")
         return
     
     print(f"Loaded {len(known_faces)} face encodings for {len(set(known_names))} people")
     print(f"Known people: {list(set(known_names))}")
+    
+    arduino_connected = initialize_arduino()
     
     cap = cv2.VideoCapture(0)
     
@@ -72,6 +101,9 @@ def detect_faces():
         return
     
     print("Starting face detection. Press 'q' to quit.")
+    
+    last_detection_time = 0
+    detection_cooldown = 3  #
     
     while True:
         ret, frame = cap.read()
@@ -86,6 +118,7 @@ def detect_faces():
         face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
         # COMPARE FACES
+        known_face_detected = False
         for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
             matches = face_recognition.compare_faces(known_faces, face_encoding, tolerance=0.6)
             detected_name = "Unknown"
@@ -96,6 +129,7 @@ def detect_faces():
 
                 if matches[best_match_index]:
                     detected_name = known_names[best_match_index]
+                    known_face_detected = True
 
             color = (0, 255, 0) if detected_name != "Unknown" else (0, 0, 255)
             cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
@@ -105,18 +139,28 @@ def detect_faces():
             font = cv2.FONT_HERSHEY_DUPLEX
             cv2.putText(frame, detected_name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
+        current_time = time.time()
+        if known_face_detected and arduino_connected:
+            if current_time - last_detection_time > detection_cooldown:
+                send_servo_signal()
+                last_detection_time = current_time
+
         cv2.imshow('Multi-Face Recognition', frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-    # Cleanup
     cap.release()
     cv2.destroyAllWindows()
+    
+    if arduino and arduino.is_open:
+        arduino.close()
+        print("Arduino connection closed")
+    
     print("Face detection stopped.")
 
 def main():
-    print("=== Face Recognition System ===")
+    print("=== Face Recognition System with Arduino Control ===")
     print("1. Add new faces")
     print("2. Detect faces")
     
@@ -130,7 +174,7 @@ def main():
             detect_faces()
             break
         else:
-            print("Invalid choice. Please enter 1 or 2.")
+            print("Invalid choice. Enter 1 or 2.")
 
 if __name__ == "__main__":
     main()
