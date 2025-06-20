@@ -6,7 +6,7 @@ import CaptureFaceData
 from FaceRecognition import treatedData
 
 def load_all_faces(base_directory):
-    """Load all faces from all person folders"""
+    
     known_faces = []
     known_names = []
     
@@ -14,7 +14,7 @@ def load_all_faces(base_directory):
         print(f"Base directory {base_directory} does not exist.")
         return known_faces, known_names
     
-    # Get all person folders
+
     person_folders = [f for f in os.listdir(base_directory) 
                      if os.path.isdir(os.path.join(base_directory, f))]
     
@@ -39,7 +39,6 @@ def load_all_faces(base_directory):
     return known_faces, known_names
 
 def add_new_person():
-    """Add a new person's face data"""
     name = input("Enter individual's name: ")
     directory = CaptureFaceData.direct(name)
     
@@ -54,7 +53,6 @@ def add_new_person():
     print(f"Face data for {name} is ready!")
 
 def detect_faces():
-    """Detect all known faces from the database"""
     base_directory = 'C:\\Users\\Administrateur\\Desktop\\PEOPLE\\'
     
     print("Loading all known faces...")
@@ -118,7 +116,6 @@ def detect_faces():
     print("Face detection stopped.")
 
 def main():
-    """Main program with mode selection"""
     print("=== Face Recognition System ===")
     print("1. Add new faces")
     print("2. Detect faces")

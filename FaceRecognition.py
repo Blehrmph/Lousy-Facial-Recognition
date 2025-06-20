@@ -31,7 +31,6 @@ def treatedData(directory): # LOADS IMAGES AND ANALYZES THEM AND WHATNOT
     return known_faces
 
 def treatedDataWithNames(directory, person_name): 
-    """Returns face encodings with corresponding person name"""
     known_faces = []
     known_names = []
     valid_extensions = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff')
@@ -63,7 +62,6 @@ def treatedDataWithNames(directory, person_name):
     return known_faces, known_names
 
 def getAllKnownFaces(base_directory):
-    """Load all faces from all person directories"""
     all_faces = []
     all_names = []
     
