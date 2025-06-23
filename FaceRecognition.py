@@ -23,7 +23,8 @@ def treatedData(directory): # LOADS IMAGES AND ANALYZES THEM AND WHATNOT
             if face_encoding:
                 known_faces.append(face_encoding[0])
             else:
-                print(f"{filename} has no detectable face. Consider deleting it.")
+                print(f"{filename} has no detectable face. Deleting.")
+                os.remove(image_path)
 
         except Exception as e:
             print(f"Error processing {filename}: {e}")

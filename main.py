@@ -7,7 +7,7 @@ import time
 import CaptureFaceData
 from FaceRecognition import treatedData
 
-ARDUINO_PORT = 'COM3'  # ARDUINO PORT
+ARDUINO_PORT = 'COM9'  # ARDUINO PORT
 BAUD_RATE = 9600 # THAT THING IDK
 arduino = None
 
@@ -23,12 +23,15 @@ def initialize_arduino():
         print("Face recognition will continue without Arduino control")
         return False
 
-def send_servo_signal():
+def send_servo_signal(command):
     global arduino
     if arduino and arduino.is_open:
         try:
-            arduino.write(b'ROTATE\n') 
-            print("Signal sent to Arduino - Servo rotating 90 degrees")
+            arduino.write(f'{command}\n'.encode())  # SEND ARDUINO COMMAND
+            if command == "KNOWN_FACE":
+                print("Signal sent to Arduino - Moving servo to 90 degrees")
+            elif command in ["NO_FACE", "UNKNOWN_FACE"]:
+                print("Signal sent to Arduino - Moving servo to 0 degrees")
         except Exception as e:
             print(f"Error sending signal to Arduino: {e}")
 
@@ -102,8 +105,8 @@ def detect_faces():
     
     print("Starting face detection. Press 'q' to quit.")
     
-    last_detection_time = 0
-    detection_cooldown = 3  #
+    # TRACKING PREVIOUS STATE
+    previous_state = None
     
     while True:
         ret, frame = cap.read()
@@ -113,12 +116,13 @@ def detect_faces():
         
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
-        
         face_locations = face_recognition.face_locations(rgb_frame)
         face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
         # COMPARE FACES
-        known_face_detected = False
+        known_face_found = False
+        unknown_face_found = False
+        
         for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
             matches = face_recognition.compare_faces(known_faces, face_encoding, tolerance=0.6)
             detected_name = "Unknown"
@@ -129,7 +133,11 @@ def detect_faces():
 
                 if matches[best_match_index]:
                     detected_name = known_names[best_match_index]
-                    known_face_detected = True
+                    known_face_found = True
+                else:
+                    unknown_face_found = True
+            else:
+                unknown_face_found = True
 
             color = (0, 255, 0) if detected_name != "Unknown" else (0, 0, 255)
             cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
@@ -139,11 +147,21 @@ def detect_faces():
             font = cv2.FONT_HERSHEY_DUPLEX
             cv2.putText(frame, detected_name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
-        current_time = time.time()
-        if known_face_detected and arduino_connected:
-            if current_time - last_detection_time > detection_cooldown:
-                send_servo_signal()
-                last_detection_time = current_time
+     
+        if arduino_connected:
+            current_state = None
+            
+            if known_face_found:
+                current_state = "KNOWN_FACE"
+            elif unknown_face_found:
+                current_state = "UNKNOWN_FACE"
+            elif len(face_locations) == 0:
+                current_state = "NO_FACE"
+            
+
+            if current_state != previous_state and current_state is not None:
+                send_servo_signal(current_state)
+                previous_state = current_state
 
         cv2.imshow('Multi-Face Recognition', frame)
 
